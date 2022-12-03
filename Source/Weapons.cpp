@@ -1,5 +1,6 @@
 import <cstdint>;
 
+import <algorithm>;
 import <unordered_map>;
 
 import Hook;
@@ -32,15 +33,13 @@ Task Task_Zoom(CBasePlayer *pPlayer, int const iFOV, int iSpeed) noexcept
 	if (iSpeed == 0)
 		co_return;
 
-	if (pPlayer->m_iFOV > iFOV)
-		iSpeed = -iSpeed;
-
+	auto const iMagnitude = std::abs(iSpeed);
 	auto const iOrder = pPlayer->entindex() % TaskScheduler::NextFrame::Rank.size();
 
-	for (; pPlayer->IsAlive() && pPlayer->m_iFOV != iFOV;)
+	for (; pPlayer->IsAlive() && pPlayer->m_iFOV != iFOV; iSpeed = (pPlayer->m_iFOV > iFOV) ? -iMagnitude : iMagnitude)
 	{
-		if ((iSpeed < 0 && pPlayer->m_iFOV + iSpeed < iFOV) ||
-			(iSpeed > 0 && pPlayer->m_iFOV + iSpeed > iFOV))
+		if ((pPlayer->m_iFOV > iFOV && pPlayer->m_iFOV - iMagnitude < iFOV) ||
+			(pPlayer->m_iFOV < iFOV && pPlayer->m_iFOV + iMagnitude > iFOV))
 		{
 			pPlayer->m_iFOV = iFOV;
 			co_return;
@@ -82,7 +81,7 @@ void __fastcall HamF_Weapon_SecondaryAttack(CBasePlayerWeapon *pThis, int) noexc
 	case WEAPON_AWP:
 		if (m_pPlayer, m_pPlayer->m_iFOV < 90)
 		{
-			g_rgiLastZoomLevel[pThis->entindex()] = m_pPlayer->m_iFOV;
+			g_rgiLastZoomLevel[pThis->entindex()] = std::clamp(m_pPlayer->m_iFOV, 10, 40);	// Compatibility: other plugins may just change the FOV as well.
 			TaskScheduler::Enroll(Task_Zoom(m_pPlayer, 90, iSpeed), iPlayerTaskId);
 		}
 		else
